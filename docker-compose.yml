@@ -1,0 +1,12 @@
+services:
+  calendar:
+    build: .
+    container_name: wallcal
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - .:/app
+    network_mode: host
+    restart: unless-stopped
