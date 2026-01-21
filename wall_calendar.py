@@ -78,7 +78,7 @@ def temp_gauge(HIGH, LOW, default = "#777", scale = (90, 20)):
     score = min(max(score, 0), 1)
     score = round(score, 1) * 10
     
-    ## My Heat Scale
+    ## Old Scale
     # heat_scale = {10: '#d83636',
     #               9: '#D5585E',
     #               8: '#CF6E78',
@@ -559,6 +559,6 @@ class WallCalendar(QWidget):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = WallCalendar()
-    window.show()
-    #window.showFullScreen()
+    #window.show()
+    window.showFullScreen()
     sys.exit(app.exec_())

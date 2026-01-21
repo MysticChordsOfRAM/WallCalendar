@@ -1,22 +1,23 @@
-FROM python:3.11-slim
+FROM debian:trixie-slim
 
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libegl1-mesa \
-    libxrandr2 \
-    libxss1 \
-    libxcursor1 \
-    libxcomposite1 \
-    libasound2 \
-    libxi6 \
-    libxtst6 \
+    python3 \
+    python3-pip \
+    python3-pyqt5 \
+    libgl1 \
+    libglx-mesa0 \
+    libglib2.0-0 \
+    libxcb-cursor0 \
+    libxkbcommon-x11-0 \
+    git \
+    fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 
 COPY . .
 
-CMD ["python", "wall_calendar.py"]
+CMD ["python3", "wall_calendar.py"]
