@@ -7,6 +7,7 @@ Created on Sun Jan 18 17:51:27 2026
 
 ## Python!
 import sys
+import pytz
 import datetime
 import os.path
 import requests
@@ -412,7 +413,7 @@ class CalendarCell(QFrame):
                 
                 if 'T' in start_raw:
                     
-                    dt = datetime.fromisoformat(start_raw.replace('Z', '+00:00'))
+                    dt = datetime.datetime.fromisoformat(start_raw.replace('Z', '+00:00'))
                     
                     local_tz = pytz.timezone("America/New_York")
                     local_dt = dt.astimezone(local_tz)
