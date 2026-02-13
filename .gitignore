@@ -4,3 +4,5 @@ token.json
 .*py[cod]
 .DS_Store
 __pycache__/
+service_account.json
+core.1

@@ -18,14 +18,15 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 ## Google API
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 # /////////////////////////////////////////////////////////////////////////// #
 # /////////////////////////////  CONFIGURATION  ///////////////////////////// #
 # /////////////////////////////////////////////////////////////////////////// #
 
-SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+SCOPES = ['https://www.googleapis.com/auth/calendar']
+SERVICE_ACCOUNT_FILE = '/app/service_account.json'
 
 event_size = '14px'
 date_size = '18px'
@@ -197,59 +198,58 @@ class DataWorker(QThread):
     
     def run(self):
         print('--- WORKER STARTED --')
-        creds = None
         
-        if os.path.exists('token.json'):
-            creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                try:
-                    print('Refreshing Token...')
-                    creds.refresh(Request())
-                except Exception as e:
-                    print(f'token refresh failed - {e}')
-                    os.remove('token.json')
-                    return self.run()
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-                creds = flow.run_local_server(port = 0)
-                
-            with open('token.json', 'w') as token:
-                token.write(creds.to_json())
-                
         try:
-            service = build('calendar', 'v3', credentials = creds)
+            creds = service_account.Credentials.from_service_account_file(
+                SERVICE_ACCOUNT_FILE, 
+                scopes=SCOPES
+            )
+        except Exception as e:
+            print(f"CRITICAL AUTH ERROR: {e}")
+            return
+
+        try:
+            service = build('calendar', 'v3', credentials=creds)
             
-            cal_list = service.calendarList().list().execute()
+            TARGET_CALENDARS = [
+                'devlin.irwin@gmail.com',  
+                'en.usa#holiday@group.v.calendar.google.com',
+                'f93d340i0ti366p4kif5hou9edmudvsj@import.calendar.google.com'
+            ]
             
-            colors_map = {}
-            
-            for cal in cal_list.get('items', []):
-                colors_map[cal['id']] = cal.get('backgroundColor', '#888888')
-                
+            DEFAULT_COLORS = ['#7986CB', '#D81B60', '#8E24AA', '#E67C73']
+
             now = datetime.datetime.now(datetime.UTC)
-            start = (now - datetime.timedelta(days = 7)).isoformat()
-            end = (now + datetime.timedelta(days = 40)).isoformat()
+            start = (now - datetime.timedelta(days=7)).isoformat()
+            end = (now + datetime.timedelta(days=40)).isoformat()
             
             all_events = []
             
-            for cal_id, color in colors_map.items():
-                events_result = service.events().list(
-                    calendarId = cal_id,
-                    timeMin = start,
-                    timeMax = end,
-                    singleEvents = True,
-                    orderBy = 'startTime'
+            for index, cal_id in enumerate(TARGET_CALENDARS):
+                print(f"Checking calendar: {cal_id}")
+                
+                try:
+                    events_result = service.events().list(
+                        calendarId=cal_id,
+                        timeMin=start,
+                        timeMax=end,
+                        singleEvents=True,
+                        orderBy='startTime'
                     ).execute()
-                
-                items = events_result.get('items', [])
-                
-                for item in items:
-                    item['color'] = color
-                    all_events.append(item)
                     
-            all_events.sort(key = lambda x: x['start'].get('dateTime', x['start'].get('date')))
+                    items = events_result.get('items', [])
+                    print(f"Found {len(items)} events in {cal_id}")
+                    
+                    color = DEFAULT_COLORS[index % len(DEFAULT_COLORS)]
+
+                    for item in items:
+                        item['color'] = color
+                        all_events.append(item)
+                        
+                except Exception as e:
+                    print(f"Could not read calendar {cal_id}: {e}")
+                    
+            all_events.sort(key=lambda x: x['start'].get('dateTime', x['start'].get('date')))
             
             organized_data = {}
             for event in all_events:
@@ -409,8 +409,15 @@ class CalendarCell(QFrame):
                 evt_text_color = paint_smart(bg_color)
                 
                 start_raw = event['start'].get('dateTime', event['start'].get('date'))
+                
                 if 'T' in start_raw:
-                    time_str = start_raw.split('T')[1][:5]
+                    
+                    dt = datetime.fromisoformat(start_raw.replace('Z', '+00:00'))
+                    
+                    local_tz = pytz.timezone("America/New_York")
+                    local_dt = dt.astimezone(local_tz)
+                    
+                    time_str = local_dt.strftime("%H:%M")
                     display_str = f"<b>{time_str}</b> {summary}"
                 
                 else:
@@ -476,6 +483,7 @@ class WallCalendar(QWidget):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
             self.close()
+            time.sleep(10)
         
     def init_timer(self):
         
